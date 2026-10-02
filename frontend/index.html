@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Reverra — Recovery Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F4E9; --stripe:#E4ECDD; --rule:#C7C0A0; --rule-strong:#9C9573;
+    --ink:#23291F; --ink-muted:#6B6F5E;
+    --green:#2F6F4E; --green-deep:#1F4D34;
+    --rust:#B3402E; --amber:#9C6B18;
+    --bg-a:#EFEAD8; --bg-b:#DCE8DA;
+    --glass-bg:rgba(255,255,255,.42); --glass-border:rgba(255,255,255,.55);
+  }
+  [data-theme="dark"]{
+    --paper:#161B14; --stripe:#1E251B; --rule:#3A4232; --rule-strong:#4C5641;
+    --ink:#E9EBDD; --ink-muted:#9AA48D;
+    --green:#5FBF8D; --green-deep:#3E8A63;
+    --rust:#E8836C; --amber:#D9A94C;
+    --bg-a:#0E120C; --bg-b:#16231B;
+    --glass-bg:rgba(30,37,27,.45); --glass-border:rgba(255,255,255,.08);
+  }
+  *{box-sizing:border-box;}
+  html{transition:background .4s ease;}
+  body{
+    margin:0;color:var(--ink);font-family:'Inter',sans-serif;font-size:14px;
+    background:
+      radial-gradient(60vw 40vh at 15% -10%, var(--bg-b), transparent 60%),
+      radial-gradient(50vw 40vh at 110% 10%, var(--bg-b), transparent 55%),
+      var(--bg-a);
+    background-attachment:fixed;
+    min-height:100vh;
+    transition:background-color .4s ease, color .4s ease;
+  }
+  .num{font-variant-numeric:tabular-nums;}
+  h1,h2,.figure{font-family:'Zilla Slab',serif;}
+
+  .glass{
+    background:var(--glass-bg); border:1.5px solid var(--glass-border);
+    -webkit-backdrop-filter:blur(14px) saturate(140%); backdrop-filter:blur(14px) saturate(140%);
+    transition:background-color .4s ease, border-color .4s ease;
+  }
+
+  header{padding:22px 32px;border-bottom:1.5px solid var(--glass-border);display:flex;justify-content:space-between;align-items:baseline;
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); position:sticky;top:0;z-index:5;}
+  header h1{font-size:26px;font-weight:700;margin:0;letter-spacing:.01em;}
+  header p{margin:4px 0 0;color:var(--ink-muted);font-size:13px;}
+  .stamp{font-size:12px;color:var(--ink-muted);display:flex;align-items:center;gap:14px;}
+  .stamp .status{display:flex;align-items:center;gap:6px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;transition:background-color .3s ease;}
+  .dot.off{background:var(--rust);}
+
+  #themeToggle{
+    width:34px;height:34px;border-radius:50%;border:1.5px solid var(--rule-strong);
+    background:var(--glass-bg);cursor:pointer;position:relative;padding:0;
+    display:flex;align-items:center;justify-content:center;
+    transition:border-color .3s ease, transform .2s ease;
+  }
+  #themeToggle:hover{transform:scale(1.06);}
+  #themeToggle svg{position:absolute;width:17px;height:17px;transition:opacity .35s ease, transform .5s ease;}
+  #themeToggle .sun{opacity:1;transform:rotate(0deg) scale(1);color:var(--amber);}
+  #themeToggle .moon{opacity:0;transform:rotate(-90deg) scale(.4);color:var(--ink);}
+  [data-theme="dark"] #themeToggle .sun{opacity:0;transform:rotate(90deg) scale(.4);}
+  [data-theme="dark"] #themeToggle .moon{opacity:1;transform:rotate(0deg) scale(1);}
+
+  main{padding:26px 32px 48px;max-width:1080px;margin:0 auto;}
+
+  .ledger-strip{display:flex;border-radius:10px;margin-bottom:30px;overflow:hidden;}
+  .ledger-strip .cell{flex:1;padding:14px 20px;border-left:1px solid var(--glass-border);}
+  .ledger-strip .cell:first-child{border-left:none;}
+  .cell .label{color:var(--ink-muted);font-size:12px;margin:0 0 6px;}
+  .cell .figure{font-size:22px;font-weight:600;margin:0;}
+
+  section.block{margin-bottom:30px;}
+  section.block h2{font-size:16px;font-weight:700;margin:0 0 4px;}
+  section.block .sub{color:var(--ink-muted);font-size:12.5px;margin:0 0 14px;}
+
+  .entry-form{border-radius:10px;padding:18px 20px;}
+  .fields{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;}
+  .field label{display:block;font-size:12px;color:var(--ink-muted);margin-bottom:5px;}
+  select,input{background:rgba(255,255,255,.25);border:1px solid var(--rule-strong);color:var(--ink);padding:7px 9px;border-radius:5px;font-family:'Inter';font-size:13px;transition:background-color .3s ease,border-color .3s ease;}
+  [data-theme="dark"] select,[data-theme="dark"] input{background:rgba(0,0,0,.2);}
+  select:focus,input:focus,button:focus{outline:2px solid var(--green-deep);outline-offset:1px;}
+  button{background:var(--green-deep);color:var(--paper);border:none;padding:9px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter';transition:background-color .2s ease, transform .15s ease;}
+  button:hover{background:var(--green);transform:translateY(-1px);}
+  button:active{transform:translateY(0);}
+
+  #simResult, #uploadResult, #addResult{margin-top:0;max-height:0;overflow:hidden;opacity:0;transition:max-height .35s ease, opacity .35s ease, margin-top .35s ease;}
+  #simResult.show, #uploadResult.show, #addResult.show{margin-top:18px;max-height:400px;opacity:1;}
+  .receipt{border-top:1px dashed var(--rule-strong);padding-top:14px;}
+  .receipt .line1{display:flex;justify-content:space-between;font-size:13px;margin-bottom:10px;}
+  .receipt .prob{font-weight:700;}
+  .receipt .subject{font-weight:600;margin-bottom:6px;}
+  .receipt pre{white-space:pre-wrap;font-family:'Inter';font-size:13px;margin:0;line-height:1.5;color:var(--ink);}
+
+  .table-wrap{border-radius:10px;padding:6px 16px;overflow-x:auto;}
+  .chart-wrap{border-radius:10px;padding:18px 20px;}
+  .chart-legend{display:flex;gap:18px;font-size:12px;color:var(--ink-muted);margin-bottom:12px;}
+  .chart-legend span{display:flex;align-items:center;gap:6px;}
+  .swatch{width:10px;height:10px;border-radius:2px;display:inline-block;}
+  .swatch.rec{background:var(--green);} .swatch.lost{background:var(--rust);}
+  .bar-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;font-size:12.5px;}
+  .bar-row .rlabel{width:120px;flex-shrink:0;color:var(--ink-muted);text-transform:capitalize;}
+  .bar-row .btrack{flex:1;display:flex;height:16px;border-radius:4px;overflow:hidden;background:var(--rule);}
+  .bar-row .bseg{height:100%;transition:width .6s ease;}
+  .bar-row .bseg.rec{background:var(--green);}
+  .bar-row .bseg.lost{background:var(--rust);}
+  .bar-row .bval{width:180px;flex-shrink:0;text-align:right;color:var(--ink-muted);}
+
+  .llm-badge{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--rule-strong);color:var(--ink-muted);margin-left:8px;}
+  .llm-badge.on{color:var(--green-deep);border-color:var(--green);}
+
+  #chatLog{margin-bottom:14px;}
+  #chatLog:empty{display:none;}
+  .chat-turn{margin-bottom:12px;padding-bottom:12px;border-bottom:1px dashed var(--rule);}
+  .chat-turn:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+  .chat-q{font-weight:600;font-size:13px;margin-bottom:5px;}
+  .chat-a{font-size:13px;line-height:1.5;color:var(--ink);white-space:pre-wrap;}
+  .chat-a.pending{color:var(--ink-muted);}
+
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-weight:600;font-size:12.5px;color:var(--ink-muted);padding:8px 10px;border-bottom:2px solid var(--rule-strong);}
+  th.num,td.num{text-align:right;}
+  td{padding:8px 10px;border-bottom:1px solid var(--rule);font-size:13px;}
+  tbody tr{transition:background-color .2s ease;}
+  tbody tr:hover{background:var(--stripe);}
+  .prob-tag{font-weight:700;}
+  .prob-tag.high{color:var(--green-deep);} .prob-tag.mid{color:var(--amber);} .prob-tag.low{color:var(--rust);}
+  .note{color:var(--ink-muted);font-size:13px;padding:10px 0;}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Reverra</h1>
+    <p>Failed payment recovery ledger</p>
+  </div>
+  <div class="stamp">
+    <span class="status"><span class="dot" id="statusDot"></span><span id="apiStatus">checking…</span></span>
+    <button id="regenBtn" onclick="regenerateData()" title="Generate a fresh random batch of synthetic data and retrain" style="padding:7px 14px;font-size:12px;">↻ Regenerate data</button>
+    <button id="themeToggle" onclick="toggleTheme()" aria-label="Toggle dark mode">
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="ledger-strip glass" id="metricStrip">
+    <div class="cell"><p class="label">Failed payments</p><p class="figure num">—</p></div>
+    <div class="cell"><p class="label">Revenue at risk</p><p class="figure num">—</p></div>
+    <div class="cell"><p class="label">Revenue recovered</p><p class="figure num">—</p></div>
+    <div class="cell"><p class="label">Recovery rate</p><p class="figure num">—</p></div>
+  </div>
+
+  <section class="block">
+    <h2>Revenue by failure reason</h2>
+    <p class="sub">Recovered vs lost revenue, broken down by why the payment failed</p>
+    <div class="chart-wrap glass" id="revenueChart"><p class="note">Loading…</p></div>
+  </section>
+
+  <section class="block">
+    <h2>Upload new data</h2>
+    <p class="sub">Replace the dataset with your own failed-payments CSV and retrain immediately. Required columns: customer_id, plan_type, amount, tenure_months, failure_reason, past_failures_90d, day_of_week, hour_of_day, is_annual_plan, recovered</p>
+    <div class="entry-form glass">
+      <div class="fields">
+        <div class="field"><label>CSV file</label><input id="csvFile" type="file" accept=".csv"></div>
+        <div class="field"><button onclick="uploadData()">Upload and retrain</button></div>
+      </div>
+      <div id="uploadResult"></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>New entry <span class="llm-badge" id="llmBadge">checking…</span></h2>
+    <p class="sub">Simulate a failed payment and get a recovery probability plus a drafted recovery email</p>
+    <div class="entry-form glass">
+      <div class="fields">
+        <div class="field"><label>Plan</label>
+          <select id="simPlan"><option>basic</option><option>standard</option><option selected>premium</option><option>enterprise</option></select>
+        </div>
+        <div class="field"><label>Amount (₹)</label><input id="simAmount" type="number" value="7499" step="1"></div>
+        <div class="field"><label>Tenure (months)</label><input id="simTenure" type="number" value="18"></div>
+        <div class="field"><label>Failure reason</label>
+          <select id="simReason">
+            <option>insufficient_funds</option><option selected>expired_card</option><option>card_declined</option>
+            <option>bank_error</option><option>fraud_flag</option><option>processing_error</option>
+          </select>
+        </div>
+        <div class="field"><label>Past failures (90d)</label><input id="simPastFailures" type="number" value="1"></div>
+        <div class="field"><button onclick="runSimulation()">Run simulation</button></div>
+      </div>
+      <div id="simResult"></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>Add a real record</h2>
+    <p class="sub">Add one actual payment outcome to the dataset by hand and retrain immediately — use this for real historical records, not simulations</p>
+    <div class="entry-form glass">
+      <div class="fields">
+        <div class="field"><label>Customer ID</label><input id="addCustomerId" type="text" placeholder="e.g. CUST-10432"></div>
+        <div class="field"><label>Plan</label>
+          <select id="addPlan"><option>basic</option><option>standard</option><option selected>premium</option><option>enterprise</option></select>
+        </div>
+        <div class="field"><label>Amount (₹)</label><input id="addAmount" type="number" value="7499" step="1"></div>
+        <div class="field"><label>Tenure (months)</label><input id="addTenure" type="number" value="18"></div>
+        <div class="field"><label>Failure reason</label>
+          <select id="addReason">
+            <option>insufficient_funds</option><option selected>expired_card</option><option>card_declined</option>
+            <option>bank_error</option><option>fraud_flag</option><option>processing_error</option>
+          </select>
+        </div>
+        <div class="field"><label>Past failures (90d)</label><input id="addPastFailures" type="number" value="1"></div>
+        <div class="field"><label>Day of week (0=Mon)</label><input id="addDay" type="number" min="0" max="6" value="2"></div>
+        <div class="field"><label>Hour (0-23)</label><input id="addHour" type="number" min="0" max="23" value="14"></div>
+        <div class="field"><label>Annual plan?</label>
+          <select id="addAnnual"><option value="0" selected>No</option><option value="1">Yes</option></select>
+        </div>
+        <div class="field"><label>Actually recovered?</label>
+          <select id="addRecovered"><option value="1" selected>Yes</option><option value="0">No</option></select>
+        </div>
+        <div class="field"><button onclick="addRecord()">Add and retrain</button></div>
+      </div>
+      <div id="addResult"></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>At-risk customers</h2>
+    <p class="sub">Ranked by recovery probability, highest first</p>
+    <div class="table-wrap glass" id="atRiskTable"><p class="note">Loading…</p></div>
+  </section>
+
+  <section class="block">
+    <h2>Ask the ledger <span class="llm-badge" id="askBadge">checking…</span></h2>
+    <p class="sub">Ask a question about this data — Gemini looks up real numbers to answer, it doesn't guess</p>
+    <div class="entry-form glass">
+      <div id="chatLog"></div>
+      <div class="fields">
+        <div class="field" style="flex:1;"><label>Your question</label>
+          <input id="askInput" type="text" placeholder="e.g. which failure reason loses us the most revenue?" style="width:100%;" onkeydown="if(event.key==='Enter')askQuestion()">
+        </div>
+        <div class="field"><button onclick="askQuestion()">Ask</button></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const API = "http://localhost:8000";
+
+function toggleTheme(){
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('reverra-theme', next);
+}
+(function initTheme(){
+  const saved = localStorage.getItem('reverra-theme');
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.setAttribute('data-theme', saved || (prefersDark ? 'dark' : 'light'));
+})();
+
+
+function fmtINR(n){ return '₹' + Number(n).toLocaleString('en-IN'); }
+function probClass(p){ return p >= 0.6 ? 'high' : (p >= 0.35 ? 'mid' : 'low'); }
+
+async function loadMetrics(){
+  const dot = document.getElementById('statusDot');
+  try{
+    const r = await fetch(`${API}/metrics`); const m = await r.json();
+    document.getElementById('apiStatus').textContent = "Connected";
+    dot.classList.remove('off');
+    const cells = document.querySelectorAll('#metricStrip .figure');
+    cells[0].textContent = m.total_failed_payments.toLocaleString('en-IN');
+    cells[1].textContent = fmtINR(m.revenue_at_risk);
+    cells[2].textContent = fmtINR(m.revenue_recovered);
+    cells[3].textContent = m.recovery_rate_pct + '%';
+  }catch(e){
+    document.getElementById('apiStatus').textContent = "Offline — start the backend";
+    dot.classList.add('off');
+  }
+}
+
+async function loadLLMStatus(){
+  try{
+    const r = await fetch(`${API}/health`); const d = await r.json();
+    const badge = document.getElementById('llmBadge');
+    const askBadge = document.getElementById('askBadge');
+    if(d.llm_enabled){
+      badge.textContent = "Gemini-generated messages: ON";
+      badge.classList.add('on');
+      askBadge.textContent = "Gemini: ON";
+      askBadge.classList.add('on');
+    }else{
+      badge.textContent = "Gemini-generated messages: OFF (using templates — set GEMINI_API_KEY)";
+      badge.classList.remove('on');
+      askBadge.textContent = "Gemini: OFF (set GEMINI_API_KEY to enable Q&A)";
+      askBadge.classList.remove('on');
+    }
+  }catch(e){}
+}
+
+async function askQuestion(){
+  const input = document.getElementById('askInput');
+  const question = input.value.trim();
+  if(!question) return;
+  const log = document.getElementById('chatLog');
+
+  const turn = document.createElement('div');
+  turn.className = 'chat-turn';
+  turn.innerHTML = `<div class="chat-q">${question}</div><div class="chat-a pending">Thinking…</div>`;
+  log.appendChild(turn);
+  input.value = '';
+  turn.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  try{
+    const r = await fetch(`${API}/ask`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({question})});
+    const d = await r.json();
+    const answerEl = turn.querySelector('.chat-a');
+    answerEl.classList.remove('pending');
+    answerEl.textContent = d.answer;
+  }catch(e){
+    const answerEl = turn.querySelector('.chat-a');
+    answerEl.classList.remove('pending');
+    answerEl.textContent = `Request failed — is the backend running on ${API}?`;
+  }
+}
+
+async function loadRevenueChart(){
+  const box = document.getElementById('revenueChart');
+  try{
+    const r = await fetch(`${API}/revenue-breakdown`); const rows = await r.json();
+    const maxTotal = Math.max(...rows.map(x => x.recovered_revenue + x.lost_revenue), 1);
+    let html = `<div class="chart-legend"><span><span class="swatch rec"></span>Recovered</span><span><span class="swatch lost"></span>Lost</span></div>`;
+    for(const row of rows){
+      const total = row.recovered_revenue + row.lost_revenue;
+      const recPct = (row.recovered_revenue / maxTotal * 100).toFixed(1);
+      const lostPct = (row.lost_revenue / maxTotal * 100).toFixed(1);
+      html += `<div class="bar-row">
+        <div class="rlabel">${row.failure_reason.replace(/_/g,' ')}</div>
+        <div class="btrack"><div class="bseg rec" style="width:${recPct}%"></div><div class="bseg lost" style="width:${lostPct}%"></div></div>
+        <div class="bval num">${fmtINR(row.recovered_revenue)} / ${fmtINR(row.lost_revenue)}</div>
+      </div>`;
+    }
+    box.innerHTML = html;
+  }catch(e){
+    box.innerHTML = `<p class="note">Couldn't load — is the backend running?</p>`;
+  }
+}
+
+
+async function loadAtRisk(){
+  try{
+    const r = await fetch(`${API}/at-risk?limit=20`); const rows = await r.json();
+    let html = `<table><thead><tr><th>Customer</th><th>Plan</th><th class="num">Amount</th><th>Reason</th><th>Tenure</th><th class="num">Recovery prob.</th></tr></thead><tbody>`;
+    for(const row of rows){
+      html += `<tr>
+        <td>${row.customer_id}</td><td>${row.plan_type}</td><td class="num">${fmtINR(row.amount)}</td>
+        <td>${row.failure_reason.replace(/_/g,' ')}</td><td>${row.tenure_months} mo</td>
+        <td class="num prob-tag ${probClass(row.recovery_probability)}">${(row.recovery_probability*100).toFixed(1)}%</td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
+    document.getElementById('atRiskTable').innerHTML = html;
+  }catch(e){
+    document.getElementById('atRiskTable').innerHTML = `<p class="note">Couldn't load — is the backend running?</p>`;
+  }
+}
+
+async function regenerateData(){
+  const btn = document.getElementById('regenBtn');
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = "Regenerating…";
+  try{
+    const r = await fetch(`${API}/regenerate-data`, {method:'POST'});
+    const d = await r.json();
+    if(!r.ok){
+      alert(d.detail || 'Regeneration failed');
+    }else{
+      loadMetrics(); loadAtRisk(); loadRevenueChart();
+    }
+  }catch(e){
+    alert(`Request failed — is the backend running on ${API}?`);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function addRecord(){
+  const payload = {
+    customer_id: document.getElementById('addCustomerId').value || `MANUAL-${Date.now()}`,
+    plan_type: document.getElementById('addPlan').value,
+    amount: parseFloat(document.getElementById('addAmount').value),
+    tenure_months: parseInt(document.getElementById('addTenure').value),
+    failure_reason: document.getElementById('addReason').value,
+    past_failures_90d: parseInt(document.getElementById('addPastFailures').value),
+    day_of_week: parseInt(document.getElementById('addDay').value),
+    hour_of_day: parseInt(document.getElementById('addHour').value),
+    is_annual_plan: parseInt(document.getElementById('addAnnual').value),
+    recovered: parseInt(document.getElementById('addRecovered').value),
+  };
+  const box = document.getElementById('addResult');
+  box.classList.add('show');
+  box.innerHTML = `<p class="note">Adding record and retraining…</p>`;
+  try{
+    const r = await fetch(`${API}/add-record`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const d = await r.json();
+    if(!r.ok){
+      box.innerHTML = `<p class="note">${d.detail || 'Failed to add record'}</p>`;
+      return;
+    }
+    box.innerHTML = `<div class="receipt">
+      <div class="subject">Record added — dataset now has ${d.total_rows.toLocaleString('en-IN')} rows</div>
+      <div class="line1"><span>Recovery rate: ${d.recovery_rate_pct}%</span><span>AUC: ${d.auc ?? 'n/a'}</span></div>
+    </div>`;
+    loadMetrics(); loadAtRisk(); loadRevenueChart();
+  }catch(e){
+    box.innerHTML = `<p class="note">Request failed — is the backend running on ${API}?</p>`;
+  }
+}
+
+async function uploadData(){
+  const fileInput = document.getElementById('csvFile');
+  const box = document.getElementById('uploadResult');
+  if(!fileInput.files.length){
+    box.classList.add('show');
+    box.innerHTML = `<p class="note">Choose a CSV file first.</p>`;
+    return;
+  }
+  box.classList.add('show');
+  box.innerHTML = `<p class="note">Uploading and retraining — this takes a few seconds…</p>`;
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  try{
+    const r = await fetch(`${API}/upload-data`, {method:'POST', body: formData});
+    const d = await r.json();
+    if(!r.ok){
+      box.innerHTML = `<p class="note">${d.detail || 'Upload failed'}</p>`;
+      return;
+    }
+    box.innerHTML = `<div class="receipt">
+      <div class="subject">Model retrained on ${d.rows.toLocaleString('en-IN')} rows</div>
+      <div class="line1"><span>New recovery rate: ${d.recovery_rate_pct}%</span><span>AUC: ${d.auc ?? 'n/a'}</span></div>
+    </div>`;
+    loadMetrics(); loadAtRisk(); loadRevenueChart();
+  }catch(e){
+    box.innerHTML = `<p class="note">Request failed — is the backend running on ${API}?</p>`;
+  }
+}
+
+async function runSimulation(){
+  const payload = {
+    plan_type: document.getElementById('simPlan').value,
+    amount: parseFloat(document.getElementById('simAmount').value),
+    tenure_months: parseInt(document.getElementById('simTenure').value),
+    failure_reason: document.getElementById('simReason').value,
+    past_failures_90d: parseInt(document.getElementById('simPastFailures').value),
+    day_of_week: new Date().getDay(),
+    hour_of_day: new Date().getHours(),
+    is_annual_plan: 0,
+    customer_id: "SIM-LIVE-DEMO"
+  };
+  const box = document.getElementById('simResult');
+  box.classList.add('show');
+  box.innerHTML = `<p class="note">Running model + drafting message…</p>`;
+  try{
+    const r = await fetch(`${API}/simulate`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const d = await r.json();
+    const actionLabels = {retry_now:'Retry now', wait_3_days:'Wait 3 days, then retry', escalate_to_human:'Escalate to human agent'};
+    const actionClass = {retry_now:'high', wait_3_days:'mid', escalate_to_human:'low'};
+    box.innerHTML = `
+      <div class="receipt">
+        <div class="line1">
+          <span>Recovery probability: <span class="prob ${probClass(d.recovery_probability)}">${(d.recovery_probability*100).toFixed(1)}%</span></span>
+          <span class="prob-tag ${actionClass[d.message.action] || ''}">${actionLabels[d.message.action] || d.message.action}</span>
+        </div>
+        <p class="note" style="padding:0 0 10px;">${d.message.reasoning || ''} <em>(${d.message.generated_by})</em></p>
+        <div class="subject">${d.message.subject}</div>
+        <pre>${d.message.body}</pre>
+      </div>`;
+  }catch(e){
+    box.innerHTML = `<p class="note">Request failed — is the backend running on ${API}?</p>`;
+  }
+}
+
+loadMetrics(); loadAtRisk(); loadRevenueChart(); loadLLMStatus();
+</script>
+</body>
+</html>
