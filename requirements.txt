@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-multipart
+pandas>=2.0
+numpy
+scikit-learn>=1.2
+joblib
+matplotlib
+google-genai

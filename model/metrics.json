@@ -1,0 +1,161 @@
+{
+  "trained_at": "2026-10-13T04:41:22+00:00",
+  "rows": 6000,
+  "base_rate": 0.3357,
+  "features": {
+    "categorical": [
+      "plan_type",
+      "failure_reason"
+    ],
+    "numeric": [
+      "amount",
+      "tenure_months",
+      "past_failures_90d",
+      "day_of_week",
+      "hour_of_day",
+      "is_annual_plan"
+    ]
+  },
+  "warnings": [],
+  "evaluated": true,
+  "split": {
+    "kind": "time",
+    "train_rows": 4800,
+    "test_rows": 1200,
+    "train_period": [
+      "2025-10-01",
+      "2026-07-21"
+    ],
+    "test_period": [
+      "2026-07-21",
+      "2026-09-30"
+    ]
+  },
+  "selected_model": "logistic_regression",
+  "selection_validation_auc": {
+    "logistic_regression": 0.6853,
+    "gradient_boosting": 0.6732
+  },
+  "models": {
+    "baseline_rate": {
+      "auc": 0.5,
+      "pr_auc": 0.355,
+      "brier": 0.2296,
+      "log_loss": 0.6518
+    },
+    "logistic_regression": {
+      "auc": 0.6911,
+      "pr_auc": 0.5315,
+      "brier": 0.2073,
+      "log_loss": 0.6009
+    },
+    "gradient_boosting": {
+      "auc": 0.6695,
+      "pr_auc": 0.503,
+      "brier": 0.2118,
+      "log_loss": 0.6113
+    }
+  },
+  "auc_ci_95": [
+    0.661,
+    0.7199
+  ],
+  "calibration": [
+    {
+      "bin": "0.0-0.1",
+      "n": 34,
+      "mean_predicted": 0.075,
+      "observed_rate": 0.088
+    },
+    {
+      "bin": "0.1-0.2",
+      "n": 171,
+      "mean_predicted": 0.156,
+      "observed_rate": 0.123
+    },
+    {
+      "bin": "0.2-0.3",
+      "n": 374,
+      "mean_predicted": 0.252,
+      "observed_rate": 0.289
+    },
+    {
+      "bin": "0.3-0.4",
+      "n": 292,
+      "mean_predicted": 0.348,
+      "observed_rate": 0.394
+    },
+    {
+      "bin": "0.4-0.5",
+      "n": 180,
+      "mean_predicted": 0.447,
+      "observed_rate": 0.489
+    },
+    {
+      "bin": "0.5-0.6",
+      "n": 110,
+      "mean_predicted": 0.542,
+      "observed_rate": 0.591
+    },
+    {
+      "bin": "0.6-0.7",
+      "n": 30,
+      "mean_predicted": 0.634,
+      "observed_rate": 0.733
+    },
+    {
+      "bin": "0.7-0.8",
+      "n": 8,
+      "mean_predicted": 0.726,
+      "observed_rate": 0.375
+    },
+    {
+      "bin": "0.8-0.9",
+      "n": 1,
+      "mean_predicted": 0.873,
+      "observed_rate": 1.0
+    }
+  ],
+  "ece": 0.0433,
+  "lift": {
+    "top_fraction": 0.3,
+    "recovery_rate_in_top": 0.5333,
+    "recovery_rate_overall": 0.355,
+    "share_of_all_recoveries_captured": 0.4507
+  },
+  "feature_importance": {
+    "failure_reason": {
+      "auc_drop": 0.1169,
+      "std": 0.0113
+    },
+    "plan_type": {
+      "auc_drop": 0.0343,
+      "std": 0.0047
+    },
+    "tenure_months": {
+      "auc_drop": 0.0324,
+      "std": 0.0069
+    },
+    "past_failures_90d": {
+      "auc_drop": 0.0308,
+      "std": 0.0066
+    },
+    "amount": {
+      "auc_drop": 0.0106,
+      "std": 0.0029
+    },
+    "is_annual_plan": {
+      "auc_drop": 0.0072,
+      "std": 0.002
+    },
+    "day_of_week": {
+      "auc_drop": 0.0012,
+      "std": 0.0004
+    },
+    "hour_of_day": {
+      "auc_drop": -0.0007,
+      "std": 0.0009
+    }
+  },
+  "oracle_auc": 0.7115
+}

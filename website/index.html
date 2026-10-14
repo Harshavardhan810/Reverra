@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reverra — the payment recovery ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('js')</script>
+<style>
+  :root{
+    --ink:#0A0908; --paper:#F3EEE6; --paper-dim:#B9ACA0;
+    --vermilion:#D9481F; --vermilion-dim:#7A2E15;
+    --rule:#2A2622;
+    --serif:'Fraunces', Georgia, serif;
+    --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --bg:var(--ink); --fg:var(--paper); --fg-dim:var(--paper-dim);
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+    box-sizing:border-box;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){ --bg:#F3EEE6; --fg:#15120F; --fg-dim:#766A5F; --rule:#DED3C4; }
+  }
+  :root[data-theme="light"]{ --bg:#F3EEE6; --fg:#15120F; --fg-dim:#766A5F; --rule:#DED3C4; }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px); scroll-behavior:smooth;}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} }
+  body{background:var(--bg); color:var(--fg); font-family:var(--sans); line-height:1.5;}
+  img{max-width:100%;}
+  .wrap{max-width:900px; margin:0 auto; padding:0 24px;}
+  a{color:inherit;}
+
+  /* ---- vane motif: repeating vertical slats, used as a texture ---- */
+  .vanes{position:absolute; inset:0; display:flex; overflow:hidden; pointer-events:none; perspective:900px;}
+  .vanes i{flex:1; border-right:1px solid rgba(20,5,2,.18); transform-origin:center; animation:vane-in .9s cubic-bezier(.2,.7,.2,1) backwards; transition:transform .5s cubic-bezier(.2,.7,.2,1);}
+  @keyframes vane-in{from{transform:scaleX(0) rotateY(60deg); opacity:0;} to{transform:scaleX(1) rotateY(0deg); opacity:1;}}
+
+  /* ---- header ---- */
+  header{border-bottom:1px solid var(--rule); padding:20px 0; position:relative; z-index:3; background:var(--bg);}
+  header .wrap{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;}
+  .mark{font-family:var(--serif); font-size:20px; font-weight:560; letter-spacing:.3px; text-decoration:none; color:var(--fg);}
+  .mark i{font-style:normal; color:var(--vermilion);}
+  .navlinks{display:flex; gap:28px; align-items:center;}
+  .navlinks a{font-size:14px; text-decoration:none; color:var(--fg-dim); position:relative; padding:4px 0; transition:color .25s;}
+  .navlinks a::after{content:''; position:absolute; left:0; right:100%; bottom:0; height:2px; background:var(--vermilion); transition:right .3s cubic-bezier(.2,.7,.2,1);}
+  .navlinks a:hover{color:var(--fg);}
+  .navlinks a:hover::after{right:0;}
+  .navlinks a.active{color:var(--fg);}
+  .navlinks a.active::after{right:0;}
+  .ghlink{font-size:14px; padding:9px 18px; border:1px solid var(--vermilion); color:var(--vermilion); border-radius:2px; text-decoration:none; white-space:nowrap; transition:background .2s,color .2s;}
+  .ghlink:hover{background:var(--vermilion); color:#0A0908;}
+
+  /* ---- page routing ---- */
+  .view{display:none;}
+  .view.active{display:block; animation:view-in .5s cubic-bezier(.2,.7,.2,1) backwards;}
+  @keyframes view-in{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);}}
+  @media (prefers-reduced-motion: reduce){ .view.active{animation:none;} }
+
+  .inner-hero{padding:64px 0 44px; border-bottom:1px solid var(--rule);}
+  .inner-hero .eyebrow{color:var(--vermilion);}
+  .inner-hero h1{font-size:clamp(32px,6vw,52px); color:var(--fg); max-width:16ch;}
+  .code{background:var(--rule); border:1px solid var(--rule); border-radius:4px; padding:16px 18px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; line-height:1.7; overflow-x:auto; color:var(--fg); margin-top:18px;}
+  .code span{color:var(--vermilion);}
+
+  /* ---- hero: vermilion vane block ---- */
+  .hero{position:relative; background:var(--vermilion); color:#140502; overflow:hidden; padding:0;}
+  .hero-inner{position:relative; z-index:2; padding:110px 24px 90px; max-width:900px; margin:0 auto;}
+  .eyebrow{font-size:14px; letter-spacing:.3px; margin-bottom:22px; color:#2C0E03;}
+  h1{font-family:var(--serif); font-weight:560; font-size:clamp(44px,9vw,92px); line-height:0.98; letter-spacing:-.01em; margin-bottom:28px;}
+  .lede{font-size:18px; max-width:48ch; color:#2C0E03; margin-bottom:40px;}
+  .cta-row{display:flex; gap:14px; flex-wrap:wrap;}
+  .btn{font-size:15px; padding:13px 24px; border-radius:2px; text-decoration:none; font-weight:500; display:inline-block; transition:transform .3s cubic-bezier(.2,.7,.2,1), background .25s, box-shadow .3s;}
+  .btn-primary{background:#140502; color:var(--paper);}
+  .btn-primary:hover{background:#2C0E03; transform:translateY(-3px); box-shadow:0 10px 24px rgba(0,0,0,.25);}
+  .btn-ghost{border:1px solid #140502; color:#140502;}
+  .btn-ghost:hover{background:rgba(20,5,2,.08); transform:translateY(-3px);}
+
+  .ledger-strip{display:flex; position:relative; z-index:2; border-top:1px solid rgba(20,5,2,.35);}
+  .ledger-strip > div{flex:1; padding:20px 24px; border-right:1px solid rgba(20,5,2,.35);}
+  .ledger-strip > div:last-child{border-right:none;}
+  .lv{font-family:var(--serif); font-size:32px; font-weight:560; color:#140502;}
+  .ll{font-size:13px; color:#2C0E03; margin-top:4px;}
+
+  /* ---- ledger rows (features) ---- */
+  section{padding:64px 0; border-bottom:1px solid var(--rule); position:relative; z-index:2;}
+  h2{font-family:var(--serif); font-weight:560; font-size:30px; margin-bottom:10px;}
+  .section-sub{color:var(--fg-dim); font-size:15px; margin-bottom:34px; max-width:54ch;}
+  .row{display:flex; justify-content:space-between; align-items:baseline; gap:20px; padding:20px 0 20px 16px; border-top:1px solid var(--rule); position:relative; transition:padding-left .4s cubic-bezier(.2,.7,.2,1);}
+  .row:last-child{border-bottom:1px solid var(--rule);}
+  .row::before{content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--vermilion); transform:scaleY(0); transform-origin:top; transition:transform .45s cubic-bezier(.2,.7,.2,1);}
+  .row:hover{padding-left:24px;}
+  .row:hover::before{transform:scaleY(1);}
+  .row-label{transition:transform .35s cubic-bezier(.2,.7,.2,1);}
+  .row:hover .row-label{transform:translateX(2px);}
+  .row-label{font-weight:500; font-size:17px;}
+  .row-desc{color:var(--fg-dim); font-size:14px; margin-top:4px; max-width:46ch;}
+  .row-tag{font-size:13px; color:var(--vermilion); white-space:nowrap; text-align:right; font-weight:500;}
+
+  /* ---- flow ---- */
+  .flow{display:flex; flex-wrap:wrap; gap:0; align-items:stretch; margin-top:8px;}
+  .flow-step{flex:1; min-width:150px; padding:22px 18px; border:1px solid var(--rule); position:relative;}
+  .flow-step + .flow-step{border-left:none;}
+  .flow-step .fn{font-family:var(--serif); font-size:22px; color:var(--vermilion); margin-bottom:12px;}
+  .flow-step .ft{font-weight:500; font-size:16px; margin-bottom:6px;}
+  .flow-step .fd{font-size:13px; color:var(--fg-dim); line-height:1.45;}
+
+  /* ---- stack ---- */
+  .stack-list{display:flex; flex-wrap:wrap; gap:9px;}
+  .pill{font-size:13px; padding:6px 13px; border:1px solid var(--rule); border-radius:20px; color:var(--fg-dim);}
+
+
+  /* ---- numbered rows (counter per list), status chip, footer columns ---- */
+  section .wrap{counter-reset:rown;}
+  .row .row-label::before{counter-increment:rown; content:"(" counter(rown, decimal-leading-zero) ")  "; font-family:var(--serif); font-size:13px; color:var(--vermilion); letter-spacing:.04em; margin-right:6px;}
+  .chip{display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:5px 12px; border:1px solid var(--rule); border-radius:20px; color:var(--fg-dim); white-space:nowrap;}
+  .chip::before{content:''; width:6px; height:6px; border-radius:50%; background:var(--vermilion);}
+  .foot-cols{display:grid; grid-template-columns:repeat(3,1fr); gap:30px; font-size:14px; color:var(--fg-dim);}
+  .foot-cols h4{font-family:var(--serif); font-weight:560; font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--fg); margin-bottom:12px;}
+  .foot-cols a{display:block; margin-bottom:7px; color:var(--fg-dim); text-decoration:none;}
+  .foot-cols a:hover{color:var(--vermilion);}
+  @media (max-width:760px){.chip{display:none;} .foot-cols{grid-template-columns:1fr;}}
+
+
+  /* ---- home: trust checklist, 3-step process, comparison, closing CTA ---- */
+  .checks{display:flex; flex-wrap:wrap; gap:8px 22px; margin-top:26px; font-size:13px; color:var(--fg-dim);}
+  .checks span::before{content:'✓'; color:var(--vermilion); margin-right:7px; font-weight:600;}
+  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:28px;}
+  .step{border-top:1px solid var(--rule); padding-top:16px;}
+  .step .n{font-family:var(--serif); font-size:34px; color:var(--vermilion); line-height:1;}
+  .step h3{font-family:var(--serif); font-weight:560; font-size:19px; margin:12px 0 6px;}
+  .step p{color:var(--fg-dim); font-size:14px;}
+  .compare{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:28px;}
+  .compare > div{border:1px solid var(--rule); border-radius:6px; padding:22px;}
+  .compare .us{border-color:var(--vermilion);}
+  .compare h3{font-family:var(--serif); font-weight:560; font-size:18px; margin-bottom:12px;}
+  .compare li{list-style:none; font-size:14px; color:var(--fg-dim); padding:6px 0; border-top:1px solid var(--rule);}
+  .compare li:first-child{border-top:0;}
+  .compare .us li::before{content:'✓  '; color:var(--vermilion);}
+  .compare .them li::before{content:'–  ';}
+  .closing{text-align:center;}
+  .closing .cta-row{justify-content:center; margin-top:22px;}
+  @media (max-width:760px){.steps,.compare{grid-template-columns:1fr;}}
+
+  /* ---- footer ---- */
+  footer{padding:50px 0 60px; position:relative; z-index:2;}
+  .note{font-size:14px; color:var(--fg-dim); max-width:60ch; line-height:1.6; margin-bottom:30px; padding-left:16px; border-left:2px solid var(--vermilion);}
+  .foot-row{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; font-size:14px; color:var(--fg-dim);}
+  .foot-row a{text-decoration:underline; text-underline-offset:3px; color:var(--vermilion);}
+  .foot-mark{font-family:var(--serif); font-size:15vw; line-height:.8; font-weight:560; color:var(--rule); letter-spacing:-.02em; margin-top:40px; user-select:none;}
+
+  @media (max-width:640px){
+    .ledger-strip{flex-direction:column;}
+    .ledger-strip > div{border-right:none; border-top:1px solid rgba(20,5,2,.35);}
+    .ledger-strip > div:first-child{border-top:none;}
+    .flow{flex-direction:column;}
+    .flow-step + .flow-step{border-left:1px solid var(--rule); border-top:none;}
+    .row{flex-direction:column; align-items:flex-start;}
+    .row-tag{text-align:left;}
+  }
+  :focus-visible{outline:2px solid var(--vermilion); outline-offset:2px;}
+  @media (prefers-reduced-motion: reduce){ *{animation:none!important; transition:none!important;} }
+
+
+  /* ===== Reverra v4: orange + black, light & dark, translucent grain, scroll motion ===== */
+  :root{
+    --serif:'Fraunces',Georgia,serif;
+    --bg:#0A0908; --fg:#F3EEE6; --fg-dim:#B0A397; --rule:rgba(243,238,230,.13);
+    --card:rgba(243,238,230,.045); --bg-t:rgba(10,9,8,.62); --vermilion:#FF6B3D;
+    --glow:rgba(255,107,61,.20); --glow2:rgba(217,72,31,.14); --grain:.30;
+  }
+  @media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+    --bg:#F3EEE6; --fg:#15120F; --fg-dim:#6F645A; --rule:rgba(21,18,15,.14);
+    --card:rgba(255,255,255,.5); --bg-t:rgba(243,238,230,.65); --vermilion:#D9481F;
+    --glow:rgba(217,72,31,.20); --glow2:rgba(255,160,110,.30); --grain:.40;}}
+  :root[data-theme="light"]{
+    --bg:#F3EEE6; --fg:#15120F; --fg-dim:#6F645A; --rule:rgba(21,18,15,.14);
+    --card:rgba(255,255,255,.5); --bg-t:rgba(243,238,230,.65); --vermilion:#D9481F;
+    --glow:rgba(217,72,31,.20); --glow2:rgba(255,160,110,.30); --grain:.40;}
+  :root[data-theme="dark"]{
+    --bg:#0A0908; --fg:#F3EEE6; --fg-dim:#B0A397; --rule:rgba(243,238,230,.13);
+    --card:rgba(243,238,230,.045); --bg-t:rgba(10,9,8,.62); --vermilion:#FF6B3D;
+    --glow:rgba(255,107,61,.20); --glow2:rgba(217,72,31,.14); --grain:.30;}
+
+  /* ambient translucent glow + film grain */
+  body::before{content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:radial-gradient(45% 40% at 12% 8%,var(--glow),transparent 70%),radial-gradient(40% 35% at 92% 32%,var(--glow2),transparent 70%),radial-gradient(50% 40% at 50% 100%,var(--glow2),transparent 70%);}
+  body::after{content:''; position:fixed; inset:0; z-index:100; pointer-events:none; opacity:var(--grain); mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+  /* type + spacing rhythm */
+  h1,h2,h3,.lv,.step .n{font-family:var(--serif); font-weight:560; letter-spacing:-.02em;}
+  h2{font-size:clamp(34px,5vw,52px); line-height:1.05; margin-bottom:14px;}
+  .wrap{max-width:1040px;}
+  section{padding:88px 0;}
+  .section-sub{max-width:56ch; color:var(--fg-dim); margin-bottom:40px;}
+  header{background:var(--bg-t); backdrop-filter:blur(14px) saturate(1.3); -webkit-backdrop-filter:blur(14px) saturate(1.3); position:sticky; top:0; z-index:50;}
+  .theme-toggle{background:transparent; border:1px solid var(--rule); color:var(--fg); width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:15px; transition:border-color .3s, transform .3s;}
+  .theme-toggle:hover{border-color:var(--vermilion); transform:rotate(25deg);}
+
+  /* hero: Reverra at the centre */
+  .hero{background:transparent; color:var(--fg); text-align:center; overflow:visible;}
+  .vanes{display:none;}
+  .hero-inner{min-height:84vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:72px 24px 48px; max-width:1040px;}
+  .eyebrow{display:inline-block; font-size:13px; padding:6px 16px; border:1px solid var(--rule); border-radius:999px; background:var(--card); color:var(--fg-dim); margin-bottom:28px; backdrop-filter:blur(8px);}
+  .wordmark{font-size:clamp(72px,17vw,208px); line-height:.92; letter-spacing:-.045em; font-weight:650; margin:0 0 22px; color:var(--fg); will-change:transform,opacity; animation:mark-in 1.2s cubic-bezier(.2,.7,.2,1) backwards;}
+  @keyframes mark-in{from{opacity:0; transform:translateY(46px) scale(.97); filter:blur(14px);}}
+  .tagline{font-family:var(--serif); font-style:italic; font-weight:500; font-size:clamp(22px,3.2vw,34px); color:var(--vermilion); margin-bottom:22px;}
+  .lede{color:var(--fg-dim); max-width:50ch; margin:0 auto 38px;}
+  .cta-row,.checks{justify-content:center;}
+  .btn{border-radius:999px; padding:14px 28px; border:1px solid transparent;}
+  .btn-primary,.btn-primary:hover{background:var(--vermilion); color:#140502;}
+  .btn-primary:hover{transform:translateY(-2px); box-shadow:0 10px 32px var(--glow);}
+  .btn-ghost,.btn-ghost:hover{background:transparent; color:var(--fg); border-color:var(--rule);}
+  .btn-ghost:hover{border-color:var(--fg); transform:translateY(-2px);}
+
+  /* translucent glass cards */
+  .ledger-strip{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; max-width:1040px; margin:0 auto; padding:0 24px 40px; border:0;}
+  .ledger-strip > div,.ledger-strip > div:last-child,.step,.compare > div,.closing .wrap{background:var(--card); border:1px solid var(--rule); border-radius:22px; padding:28px; backdrop-filter:blur(16px) saturate(1.2); -webkit-backdrop-filter:blur(16px) saturate(1.2);}
+  .lv{font-size:clamp(40px,5vw,56px); color:var(--fg); line-height:1;} .ll{color:var(--fg-dim); margin-top:8px;}
+  .steps,.compare{gap:16px;} .step h3{font-size:26px; line-height:1.1;} .step .n{font-size:44px;}
+  .compare h3{font-size:26px;} .compare .us{border-color:var(--vermilion);}
+  .code{background:var(--card); border-radius:14px; backdrop-filter:blur(10px);}
+  .closing .wrap{padding:72px 24px; background:radial-gradient(60% 90% at 50% 0%,var(--glow),transparent 70%),var(--card);}
+  .foot-cols h4{font-family:var(--sans);}
+  .foot-mark{color:var(--rule); font-weight:650;}
+
+  /* scroll reveal */
+  html.js .rv{opacity:0; transform:translateY(30px); transition:opacity .95s cubic-bezier(.2,.7,.2,1), transform .95s cubic-bezier(.2,.7,.2,1), padding-left .4s cubic-bezier(.2,.7,.2,1);}
+  html.js .rv.in{opacity:1; transform:none;}
+  @media (max-width:760px){.ledger-strip{grid-template-columns:1fr;} section{padding:64px 0;} .hero-inner{min-height:76vh;}}
+  @media (prefers-reduced-motion:reduce){.wordmark{animation:none;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="#/" class="mark">Rever<i>ra</i></a>
+    <nav class="navlinks" id="navlinks">
+      <a href="#/" data-route="/">Home</a>
+      <a href="#/features" data-route="/features">Features</a>
+      <a href="#/docs" data-route="/docs">Docs</a>
+      <a href="#/contact" data-route="/contact">Contact</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle" aria-label="Switch light or dark theme" title="Switch theme">◐</button>
+    <span class="chip">Open source — building in public</span>
+    <a class="ghlink" href="../frontend/index.html" target="_blank" rel="noopener">Open Dashboard →</a>
+  </div>
+</header>
+
+<main>
+
+<div class="view" data-view="/">
+  <section class="hero">
+    <div class="vanes" id="vanes" aria-hidden="true"></div>
+    <div class="hero-inner">
+      <div class="eyebrow">A recovery ledger for failed subscription payments</div>
+      <h1 class="wordmark" id="wordmark">Reverra</h1>
+      <p class="tagline">Every failed payment has a story.</p>
+      <p class="lede">Reverra scores each failed payment, drafts the right recovery email, and tracks what actually came back — one pipeline, not a model bolted onto a dashboard.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="../frontend/index.html" target="_blank" rel="noopener">Open the dashboard</a>
+        <a class="btn btn-ghost" href="#/features">See what it does</a>
+      </div>
+      <div class="checks"><span>Open source</span><span>Runs locally</span><span>Assumptions documented</span></div>
+    </div>
+    <div class="ledger-strip">
+      <div><div class="lv" data-count="33.6" data-suffix="%">0%</div><div class="ll">of simulated failures recovered</div></div>
+      <div><div class="lv" data-count="0.691" data-decimals="3">0.000</div><div class="ll">AUC on the most recent payments (time split)</div></div>
+      <div><div class="lv" data-count="6">0</div><div class="ll">failure reasons modeled</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Why a ledger, not just a model</h2>
+      <p class="section-sub">A score by itself doesn't recover anything. Reverra closes the loop: predict, act, confirm, and feed the real outcome back in.</p>
+      <div class="row">
+        <div><div class="row-label">Built as one pipeline</div><div class="row-desc">Score, draft, and retrain share the same data — not three disconnected tools wired together after the fact.</div></div>
+        <div class="row-tag"><a href="#/features" style="color:inherit;text-decoration:underline;">See features →</a></div>
+      </div>
+      <div class="row">
+        <div><div class="row-label">Honest about its data</div><div class="row-desc">No public dataset of real recovery outcomes exists, so Reverra's data is simulated, calibrated to published industry recovery rates and deliberately noisy, rather than taken from real customer records.</div></div>
+        <div class="row-tag"><a href="#/docs" style="color:inherit;text-decoration:underline;">Read the docs →</a></div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="wrap">
+      <h2>Three steps, one loop</h2>
+      <p class="section-sub">From a failed charge to a confirmed outcome that makes the next prediction better.</p>
+      <div class="steps">
+        <div class="step"><div class="n">01</div><h3>Score</h3><p>Each failed payment gets a recovery probability from a model trained on the ledger.</p></div>
+        <div class="step"><div class="n">02</div><h3>Act</h3><p>Reverra drafts the recovery email that fits the failure reason, so effort goes where it pays back.</p></div>
+        <div class="step"><div class="n">03</div><h3>Confirm</h3><p>Log the real outcome; it joins the training data and the model retrains.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Why not a spreadsheet and a hunch?</h2>
+      <div class="compare">
+        <div class="them"><h3>Spreadsheets &amp; guesswork</h3><ul><li>Every failure treated the same</li><li>Generic dunning emails</li><li>No record of what actually worked</li><li>Questions answered by manual filtering</li></ul></div>
+        <div class="us"><h3>Reverra</h3><ul><li>Failures ranked by recovery odds</li><li>Emails matched to the failure reason</li><li>Outcomes feed back into the model</li><li>Rivera answers questions in plain English</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="closing">
+    <div class="wrap">
+      <h2>See your failed payments differently</h2>
+      <p class="section-sub">Run it locally in a few minutes, or read how it works first.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="../frontend/index.html" target="_blank" rel="noopener">Open the dashboard</a>
+        <a class="btn btn-ghost" href="#/docs">Read the docs</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="view" data-view="/features">
+  <section class="inner-hero">
+    <div class="wrap">
+      <div class="eyebrow">Features</div>
+      <h1>What's in the ledger</h1>
+      <p class="lede" style="color:var(--fg-dim);">Four entries, each doing one job.</p>
+    </div>
+  </section>
+  <section>
+    <div class="wrap">
+      <div class="row">
+        <div><div class="row-label">Score the failure</div><div class="row-desc">Plan, amount, tenure, and failure reason go in; a recovery probability comes out, trained on failure-reason patterns in the data.</div></div>
+        <div class="row-tag">scikit-learn</div>
+      </div>
+      <div class="row">
+        <div><div class="row-label">Draft the recovery email</div><div class="row-desc">Gemini writes a message suited to the customer and the failure, with urgency set by the model's own score — not a fixed template.</div></div>
+        <div class="row-tag">Gemini API</div>
+      </div>
+      <div class="row">
+        <div><div class="row-label">Ask Rivera</div><div class="row-desc">A floating assistant answers questions like "which failure reason loses us the most" by looking up real numbers, not guessing. It also helps you find your way around, and handles finance and general-knowledge questions.</div></div>
+        <div class="row-tag">FastAPI</div>
+      </div>
+      <div class="row">
+        <div><div class="row-label">Confirm and retrain</div><div class="row-desc">Entered payments sit as pending until someone confirms what actually happened — only confirmed outcomes ever reach the training data.</div></div>
+        <div class="row-tag">live retrain</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="view" data-view="/docs">
+  <section class="inner-hero">
+    <div class="wrap">
+      <div class="eyebrow">Docs</div>
+      <h1>How a payment moves through it</h1>
+      <p class="lede" style="color:var(--fg-dim);">One direction, four stops — from raw failure to a tracked outcome.</p>
+    </div>
+  </section>
+  <section>
+    <div class="wrap">
+      <div class="flow">
+        <div class="flow-step"><div class="fn">01</div><div class="ft">Failure lands</div><div class="fd">A payment fails. Plan, amount, tenure, and reason are recorded.</div></div>
+        <div class="flow-step"><div class="fn">02</div><div class="ft">Model scores it</div><div class="fd">The classifier returns a recovery probability from the current data.</div></div>
+        <div class="flow-step"><div class="fn">03</div><div class="ft">Ledger acts</div><div class="fd">A drafted email goes out; the entry sits as pending on the dashboard.</div></div>
+        <div class="flow-step"><div class="fn">04</div><div class="ft">Outcome confirmed</div><div class="fd">Recovered or not — the real result joins the dataset for the next retrain.</div></div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="wrap">
+      <h2>Run it locally</h2>
+      <p class="section-sub">Clone the repo, then:</p>
+      <div class="code">pip install -r requirements.txt<br>python data/generate_data.py<br>python model/train_model.py<br>uvicorn backend.main:app --reload --port <span>8000</span><br><br># then open http://localhost:<span>8000</span></div>
+      <div class="cta-row" style="margin-top:22px;">
+        <a class="btn btn-primary" href="../frontend/index.html" target="_blank" rel="noopener">Open the dashboard</a>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="wrap">
+      <h2>Built with</h2>
+      <div class="stack-list">
+        <span class="pill">FastAPI</span>
+        <span class="pill">scikit-learn</span>
+        <span class="pill">pandas</span>
+        <span class="pill">Gemini API</span>
+        <span class="pill">vanilla JS dashboard</span>
+        <span class="pill">joblib</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="view" data-view="/contact">
+  <section class="inner-hero">
+    <div class="wrap">
+      <div class="eyebrow">Contact</div>
+      <h1>Questions, bugs, ideas</h1>
+      <p class="lede" style="color:var(--fg-dim);">Reverra is open source — the fastest way to reach it is through the repo itself.</p>
+    </div>
+  </section>
+  <section>
+    <div class="wrap">
+      <div class="row">
+        <div><div class="row-label">Open an issue</div><div class="row-desc">Found a bug, or want a feature? File it directly on GitHub.</div></div>
+        <div class="row-tag"><a href="https://github.com/Harshavardhan810/Reverra/issues" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">Issues →</a></div>
+      </div>
+      <div class="row">
+        <div><div class="row-label">Read the source</div><div class="row-desc">Backend, model, and dashboard are all in one public repo.</div></div>
+        <div class="row-tag"><a href="https://github.com/Harshavardhan810/Reverra" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">Repo →</a></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+</main>
+<script>
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // One orchestrated reveal on load: the vanes turn in, left to right — echoes
+  // Louver's slat motif without the full scroll-driven interaction.
+  const vaneLayer = document.getElementById('vanes');
+  const VANE_COUNT = 20;
+  const vaneEls = [];
+  for (let i = 0; i < VANE_COUNT; i++) {
+    const v = document.createElement('i');
+    v.style.animationDelay = reduceMotion ? '0s' : (i * 0.025) + 's';
+    vaneLayer.appendChild(v);
+    vaneEls.push(v);
+  }
+
+  // Vanes lean toward the cursor, like Louver's hero — smoothed with a lerp
+  // loop rather than snapping straight to the mouse position.
+  if (!reduceMotion) {
+    let targetX = 0.5, hero = document.querySelector('.hero');
+    hero.addEventListener('mousemove', e => {
+      const r = hero.getBoundingClientRect();
+      targetX = (e.clientX - r.left) / r.width;
+    });
+    hero.addEventListener('mouseleave', () => { targetX = 0.5; });
+    let current = new Array(VANE_COUNT).fill(0);
+    function tick(){
+      vaneEls.forEach((v, i) => {
+        const pos = i / (VANE_COUNT - 1);
+        const dist = pos - targetX;
+        const target = dist * 26; // max lean in degrees
+        current[i] += (target - current[i]) * 0.09;
+        v.style.transform = `rotateY(${current[i]}deg)`;
+      });
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // Count the ledger stats up once, when the hero first renders.
+  document.querySelectorAll('.lv[data-count]').forEach(el => {
+    const target = parseFloat(el.dataset.count);
+    const decimals = parseInt(el.dataset.decimals || '0');
+    const suffix = el.dataset.suffix || '';
+    if (reduceMotion) { el.textContent = target.toFixed(decimals) + suffix; return; }
+    const start = performance.now(), dur = 1400;
+    function step(now){
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = (target * eased).toFixed(decimals) + suffix;
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
+
+  // Hash-based router between the four pages. Each view crossfades/slides in
+  // via the .view.active CSS animation rather than a full page reload.
+  const views = document.querySelectorAll('.view');
+  const navEls = document.querySelectorAll('.navlinks a');
+  const titles = {'/':'Reverra — the payment recovery ledger','/features':'Features · Reverra','/docs':'Docs · Reverra','/contact':'Contact · Reverra'};
+  function route(){
+    let path = (location.hash || '#/').slice(1);
+    if (!document.querySelector(`.view[data-view="${path}"]`)) path = '/';
+    views.forEach(v => v.classList.toggle('active', v.dataset.view === path));
+    navEls.forEach(a => a.classList.toggle('active', a.dataset.route === path));
+    document.title = titles[path] || titles['/'];
+    window.scrollTo({top:0, behavior: reduceMotion ? 'auto' : 'instant'});
+  }
+  window.addEventListener('hashchange', route);
+  route();
+</script>
+
+<footer>
+  <div class="wrap">
+    <p class="note">No public dataset of real failed-payment outcomes exists — that data lives inside processors like Stripe and isn't released. Reverra's data is simulated: its recovery rate is calibrated to published industry ranges (roughly 20-40%), and the failure-reason mix and effects are assumptions, not measurements. The pipeline, the time-based evaluation, and the retraining loop around it are real, and the same columns accept real data.</p>
+    <div class="foot-cols">
+      <div><h4>Index</h4><a href="#/">Home</a><a href="#/features">Features</a><a href="#/docs">Docs</a><a href="#/contact">Contact</a></div>
+      <div><h4>Source</h4><a href="https://github.com/Harshavardhan810/Reverra" target="_blank" rel="noopener">Repo</a><a href="https://github.com/Harshavardhan810/Reverra/issues" target="_blank" rel="noopener">Issues</a><a href="../frontend/index.html" target="_blank" rel="noopener">Dashboard</a></div>
+      <div><h4>Status</h4><span>Open source, built in public</span></div>
+    </div>
+    <div class="foot-mark">Reverra</div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  if(location.protocol!=='file:'){   // served by the API itself: the dashboard lives at /dashboard/
+    document.querySelectorAll('a[href="../frontend/index.html"]').forEach(function(a){a.setAttribute('href','/dashboard/');});
+  }
+  var root=document.documentElement;
+  try{var t=localStorage.getItem('rv-theme'); if(t) root.setAttribute('data-theme',t);}catch(e){}
+  document.getElementById('themeToggle').addEventListener('click',function(){
+    var cur=root.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');
+    var next=cur==='light'?'dark':'light'; root.setAttribute('data-theme',next);
+    try{localStorage.setItem('rv-theme',next);}catch(e){}
+  });
+  var sel='.hero-inner > :not(.wordmark), main h2, .wrap > .section-sub, .row, .step, .compare > div, .ledger-strip > div, .foot-cols > div, .closing .cta-row, .code, .inner-hero .wrap > *';
+  var els=document.querySelectorAll(sel);
+  if(root.classList.contains('js') && 'IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){
+      if(e.isIntersecting){var el=e.target; el.classList.add('in'); io.unobserve(el);
+        setTimeout(function(){el.style.transitionDelay='0ms';},1500);}
+    });},{threshold:.12, rootMargin:'0px 0px -6% 0px'});
+    els.forEach(function(el){
+      el.classList.add('rv');
+      el.style.transitionDelay=(Array.prototype.indexOf.call(el.parentNode.children,el)%5)*90+'ms';
+      io.observe(el);
+    });
+    var wm=document.getElementById('wordmark'), ticking=false;
+    addEventListener('scroll',function(){
+      if(ticking||!wm) return; ticking=true;
+      requestAnimationFrame(function(){var y=Math.min(scrollY,700);
+        wm.style.transform='translateY('+(y*.16)+'px) scale('+(1-y/4200)+')'; wm.style.opacity=Math.max(0,1-y/620); ticking=false;});
+    },{passive:true});
+  }
+})();
+</script>
+<script>window.RIVERA_CONFIG = { page: 'website' };</script>
+<script src="rivera.js" defer></script>
+</body>
+</html>
