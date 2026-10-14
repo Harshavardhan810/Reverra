@@ -391,9 +391,20 @@ function errText(d, fallback){                // readable message from FastAPI e
     return 'Invalid input: ' + d.detail.map(x => (x.loc ? x.loc[x.loc.length-1] + ' — ' : '') + x.msg).join('; ');
   return fallback;
 }
+// The unlock button is hidden from the public. The site owner opens the dashboard once through the
+// private link  /dashboard/?admin  and the button then stays available for that browser tab.
+// (Hiding it is only tidiness: what actually protects the data is the secret token checked by the server.)
+const ADMIN_UI_KEY = 'reverra-admin-ui';
+function adminUiAllowed(){
+  const viaLink = /[?&#]admin(?:[=&#]|$)/.test(location.search + location.hash);
+  try{
+    if(viaLink) sessionStorage.setItem(ADMIN_UI_KEY, '1');
+    return viaLink || sessionStorage.getItem(ADMIN_UI_KEY) === '1' || !!getAdminToken();
+  }catch(e){ return viaLink; }
+}
 function refreshLock(){
   const b = document.getElementById('lockBtn'); if(!b) return;
-  if(!window.READ_ONLY){ b.style.display = 'none'; return; }
+  if(!window.READ_ONLY || !adminUiAllowed()){ b.style.display = 'none'; return; }
   b.style.display = '';
   b.textContent = getAdminToken() ? '🔓 Admin unlocked — lock' : '🔒 Read-only demo — unlock';
 }
